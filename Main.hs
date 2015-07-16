@@ -74,20 +74,20 @@ inkscape :: FilePath -> RenderJob -> IO ()
 inkscape input job = undefined
 
 render :: RenderGroup -> IO ()
-render (RenderGroup b inputs jobs) =
-    V.forM_ inputs $ \inputStar -> do
-        glob inputStar >>= \globs -> forM_ globs $ \input ->
-            V.forM_ jobs $ \job -> do
-                createDirectoryIfMissing True $ jobPath job
-                let backFun = case b of
-                                Illustrator -> illustrator
-                                Inkscape -> inkscape
-                backFun input job
+render (RenderGroup b inputs jobs) = do
+    globs <- join <$> V.mapM (fmap V.fromList . glob) inputs
+    V.forM_ globs $ \input ->
+        V.forM_ jobs $ \job -> do
+            createDirectoryIfMissing True $ jobPath job
+            let backFun = case b of
+                            Illustrator -> illustrator
+                            Inkscape -> inkscape
+            backFun input job
 
 main :: IO ()
 main = do
     args <- getArgs
-    let defaultPath = "/home/matt/workspace/rn/images.yaml"
+    let defaultPath = "images.yaml"
         yamlFile = fromMaybe defaultPath $ listToMaybe args
     renderGroups <- decodeFileEither yamlFile
     case renderGroups of
