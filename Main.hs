@@ -56,19 +56,21 @@ illustrator input job =
     in case mScale of
         Nothing -> print "What are you doing"
         Just scale -> do
+            absoluteInput <- makeAbsolute input
+            absoluteJobPath <- makeAbsolute $ jobPath job
             let cmd = "osascript"
                 (_, fileName) = splitFileName $ replaceExtension input ".png"
-                output = jobPath job </> fileName
+                absoluteOutput = absoluteJobPath </> fileName
                 args = [ "illustrator-render"
-                       , input
-                       , output
+                       , absoluteInput
+                       , absoluteOutput
                        , show scale
                        ]
-            print $ "Rendering " ++ input ++ " to " ++ output
+            print $ "Rendering " ++ absoluteInput ++ " to " ++ absoluteOutput
             (ecode, out, err) <- readProcessWithExitCode cmd args ""
             case ecode of
                 ExitSuccess -> return ()
-                ExitFailure c -> print $ "Render of " ++ output ++ "failed with code " ++ show c
+                ExitFailure c -> print $ "Render of " ++ absoluteOutput ++ "failed with code " ++ show c
 
 inkscape :: FilePath -> RenderJob -> IO ()
 inkscape input job = undefined
