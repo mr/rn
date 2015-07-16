@@ -76,8 +76,7 @@ inkscape input job = undefined
 render :: RenderGroup -> IO ()
 render (RenderGroup b inputs jobs) =
     V.forM_ inputs $ \inputStar -> do
-        globs <- glob inputStar
-        forM_ globs $ \input ->
+        glob inputStar >>= \globs -> forM_ globs $ \input ->
             V.forM_ jobs $ \job -> do
                 createDirectoryIfMissing True $ jobPath job
                 let backFun = case b of
