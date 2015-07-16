@@ -50,7 +50,7 @@ instance FromJSON RenderJob where
 illustrator :: Text -> RenderJob -> IO ()
 illustrator input job =
     let srcdpi = fromMaybe 72 $ srcDPI job
-        mScale = scaling job `mplus` (dpi job >>= \dp -> Just $ dp / srcdpi * 100)
+        mScale = scaling job `mplus` (dpi job >>= \dp -> Just $ (dp / srcdpi) * 100)
     in case mScale of
         Nothing -> print "What are you doing"
         Just scale -> do
