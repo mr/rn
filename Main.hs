@@ -56,8 +56,8 @@ illustrator input job =
         Nothing -> print "What are you doing"
         Just scale -> do
             let cmd = "osascript"
-                (_, fileName) = splitFilename $ replaceExtension input ".png"
-                output = jobPath job </> filename
+                (_, fileName) = splitFileName $ replaceExtension input ".png"
+                output = jobPath job </> fileName
                 args = [ "illustrator-render"
                        , input
                        , output
@@ -89,5 +89,5 @@ main = do
         yamlFile = fromMaybe defaultPath $ listToMaybe args
     renderGroups <- decodeFileEither yamlFile
     case renderGroups of
-      Left e -> print e
-      Right r -> V.mapM_ render r
+        Left e -> print e
+        Right r -> V.mapM_ render r
