@@ -11,6 +11,7 @@ import System.Process
 import System.Environment
 import System.Exit
 import System.FilePath
+import System.FilePath.Glob
 
 data RenderGroup = RenderGroup {
     backend    :: Backend,
@@ -74,13 +75,15 @@ inkscape input job = undefined
 
 render :: RenderGroup -> IO ()
 render (RenderGroup b inputs jobs) =
-    V.forM_ inputs $ \input ->
-        V.forM_ jobs $ \job -> do
-            createDirectoryIfMissing True $ jobPath job
-            let backFun = case b of
-                            Illustrator -> illustrator
-                            Inkscape -> inkscape
-            backFun input job
+    V.forM_ inputs $ \inputStar -> do
+        globs <- glob inputStar
+        forM_ globs $ \input ->
+            V.forM_ jobs $ \job -> do
+                createDirectoryIfMissing True $ jobPath job
+                let backFun = case b of
+                                Illustrator -> illustrator
+                                Inkscape -> inkscape
+                backFun input job
 
 main :: IO ()
 main = do

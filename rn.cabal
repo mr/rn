@@ -20,7 +20,7 @@ executable rn
   main-is:             Main.hs
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.7 && <4.9, vector >=0.11 && <0.12, yaml >=0.8 && <0.9, text, process, filepath, directory
+  build-depends:       base >=4.7 && <4.9, vector >=0.11 && <0.12, yaml >=0.8 && <0.9, text, process, filepath, directory, Glob
   -- hs-source-dirs:
   default-language:    Haskell2010
   default-extensions:
