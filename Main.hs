@@ -56,7 +56,8 @@ illustrator input job =
         Nothing -> print "What are you doing"
         Just scale -> do
             let cmd = "osascript"
-                output = jobPath job </> (replaceExtension input ".png")
+                (_, fileName) = splitFilename $ replaceExtension input ".png"
+                output = jobPath job </> filename
                 args = [ "illustrator-render"
                        , input
                        , output
