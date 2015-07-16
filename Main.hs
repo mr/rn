@@ -1,3 +1,4 @@
+import Control.Applicative
 import Control.Monad
 import Data.Maybe
 import qualified Data.Text as T
@@ -70,11 +71,11 @@ inkscape :: FilePath -> RenderJob -> IO ()
 inkscape input job = undefined
 
 render :: Vector RenderGroup -> IO ()
-render = mapM_ render'
+render = V.mapM_ render'
     where
         render' (RenderGroup Illustrator inputs jobs) =
-            forM_ inputs $ \input ->
-                forM_ jobs $ \job ->
+            V.forM_ inputs $ \input ->
+                V.forM_ jobs $ \job ->
                     illustrator input job
         render' (RenderGroup Inkscape inputs jobs) = undefined
 
