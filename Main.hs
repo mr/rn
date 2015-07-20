@@ -47,14 +47,13 @@ instance FromJSON RenderJob where
         scalingOrDPI v <*>
         fmap (fmap T.unpack) (v .:? "prepend")
         where
-            scalingOrDPI w = do
-                mscaling <- w .:? "scaling"
-                mdp <- w .:? "dpi"
+            scalingOrDPI w = w .:? "scaling" >>= \mscaling ->
                 case mscaling of
-                    Nothing -> case mdp of
-                                   Nothing -> fail "Need 1 of either dpi or scaling"
-                                   Just dp -> return . Right $ dp
                     Just scaling -> return . Left $ scaling
+                    Nothing -> w .:? "dpi" >>= \mdp ->
+                        case mdp of
+                           Just dp -> return . Right $ dp
+                           Nothing -> fail "Need 1 of either dpi or scaling"
 
 illustrator :: FilePath -> RenderJob -> IO ()
 illustrator input job = do
