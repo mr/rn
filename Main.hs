@@ -35,42 +35,47 @@ instance FromJSON Backend where
 
 data RenderJob = RenderJob {
     jobPath  :: FilePath,
-    dpi      :: Maybe Float,
     srcDPI   :: Float,
-    scaling  :: Maybe Float,
+    dpi      :: Either Float Float,
     prepend  :: Maybe String
 } deriving (Show)
 
 instance FromJSON RenderJob where
     parseJSON (Object v) = RenderJob <$>
         fmap T.unpack (v .:  "path") <*>
-        v .:? "dpi" <*>
         v .:? "srcdpi"  .!= 72 <*>
-        v .:? "scaling" <*>
+        scalingOrDPI v <*>
         fmap (fmap T.unpack) (v .:? "prepend")
+        where
+            scalingOrDPI w = do
+                mscaling <- w .:? "scaling"
+                mdp <- w .:? "dpi"
+                case mscaling of
+                    Nothing -> case mdp of
+                                   Nothing -> fail "Need 1 of either dpi or scaling"
+                                   Just dp -> return . Right $ dp
+                    Just scaling -> return . Left $ scaling
 
 illustrator :: FilePath -> RenderJob -> IO ()
-illustrator input job =
-    let dpiAlg sdp dp = Just $ dp / sdp * 100
-        mScale = scaling job `mplus` (dpi job >>= dpiAlg (srcDPI job))
-    in case mScale of
-        Nothing -> putStrLn "What are you doing"
-        Just scale -> do
-            absoluteInput <- makeAbsolute input
-            absoluteJobPath <- makeAbsolute $ jobPath job
-            let cmd = "osascript"
-                (_, fileName) = splitFileName $ replaceExtension input ".png"
-                absoluteOutput = absoluteJobPath </> maybe fileName (++ fileName) (prepend job)
-                args = [ "illustrator-render"
-                       , absoluteInput
-                       , absoluteOutput
-                       , show scale
-                       ]
-            putStrLn $ "Rendering " ++ absoluteInput ++ " to " ++ absoluteOutput
-            (ecode, out, err) <- readProcessWithExitCode cmd args ""
-            case ecode of
-                ExitSuccess -> return ()
-                ExitFailure c -> putStrLn $ "Render of " ++ absoluteOutput ++ "failed with code " ++ show c
+illustrator input job = do
+    let scaling = case dpi job of
+                    Left scale -> scale
+                    Right dp -> dp / srcDPI job * 100
+    absoluteInput <- makeAbsolute input
+    absoluteJobPath <- makeAbsolute $ jobPath job
+    let cmd = "osascript"
+        (_, fileName) = splitFileName $ replaceExtension input ".png"
+        absoluteOutput = absoluteJobPath </> maybe fileName (++ fileName) (prepend job)
+        args = [ "illustrator-render"
+               , absoluteInput
+               , absoluteOutput
+               , show scaling
+               ]
+    putStrLn $ "Rendering " ++ absoluteInput ++ " to " ++ absoluteOutput
+    (ecode, out, err) <- readProcessWithExitCode cmd args ""
+    case ecode of
+        ExitSuccess -> return ()
+        ExitFailure c -> putStrLn $ "Render of " ++ absoluteOutput ++ "failed with code " ++ show c
 
 inkscape :: FilePath -> RenderJob -> IO ()
 inkscape input job = undefined
