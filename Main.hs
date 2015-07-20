@@ -36,7 +36,7 @@ instance FromJSON Backend where
 data RenderJob = RenderJob {
     jobPath  :: FilePath,
     dpi      :: Maybe Float,
-    srcDPI   :: Maybe Float,
+    srcDPI   :: Float,
     scaling  :: Maybe Float,
     prepend  :: Maybe String
 } deriving (Show)
@@ -45,32 +45,32 @@ instance FromJSON RenderJob where
     parseJSON (Object v) = RenderJob <$>
         fmap T.unpack (v .:  "path") <*>
         v .:? "dpi" <*>
-        v .:? "srcdpi" <*>
-        v .:? "prepend" <*>
-        fmap (fmap T.unpack) (v .:? "scaling")
+        v .:? "srcdpi"  .!= 72 <*>
+        v .:? "scaling" <*>
+        fmap (fmap T.unpack) (v .:? "prepend")
 
 illustrator :: FilePath -> RenderJob -> IO ()
 illustrator input job =
-    let srcdpi = fromMaybe 72 $ srcDPI job
-        mScale = scaling job `mplus` (dpi job >>= \dp -> Just $ (dp / srcdpi) * 100)
+    let dpiAlg sdp dp = Just $ dp / sdp * 100
+        mScale = scaling job `mplus` (dpi job >>= dpiAlg (srcDPI job))
     in case mScale of
-        Nothing -> print "What are you doing"
+        Nothing -> putStrLn "What are you doing"
         Just scale -> do
             absoluteInput <- makeAbsolute input
             absoluteJobPath <- makeAbsolute $ jobPath job
             let cmd = "osascript"
                 (_, fileName) = splitFileName $ replaceExtension input ".png"
-                absoluteOutput = absoluteJobPath </> fileName
+                absoluteOutput = absoluteJobPath </> maybe fileName (++ fileName) (prepend job)
                 args = [ "illustrator-render"
                        , absoluteInput
                        , absoluteOutput
                        , show scale
                        ]
-            print $ "Rendering " ++ absoluteInput ++ " to " ++ absoluteOutput
+            putStrLn $ "Rendering " ++ absoluteInput ++ " to " ++ absoluteOutput
             (ecode, out, err) <- readProcessWithExitCode cmd args ""
             case ecode of
                 ExitSuccess -> return ()
-                ExitFailure c -> print $ "Render of " ++ absoluteOutput ++ "failed with code " ++ show c
+                ExitFailure c -> putStrLn $ "Render of " ++ absoluteOutput ++ "failed with code " ++ show c
 
 inkscape :: FilePath -> RenderJob -> IO ()
 inkscape input job = undefined
