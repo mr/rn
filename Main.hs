@@ -1,5 +1,7 @@
+{-# LANGUAGE Arrows #-}
+
 import Control.Applicative
-import Control.Monad
+import Control.Monad (join)
 import Data.Maybe
 import Data.Text (Text)
 import Data.Vector (Vector)
@@ -10,12 +12,15 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.FilePath.Glob
+import Text.XML.HXT.Core
+import qualified Control.Monad as M
 import qualified Data.Text as T
 import qualified Data.Text.Format as F
 import qualified Data.Vector as V
 
 data RenderGroup = RenderGroup {
     backend    :: Backend,
+    ninePatch  :: Bool,
     images     :: Vector FilePath,
     renderJobs :: Vector RenderJob
 } deriving (Show)
@@ -23,6 +28,7 @@ data RenderGroup = RenderGroup {
 instance FromJSON RenderGroup where
     parseJSON (Object v) = RenderGroup <$>
         v .: "backend" <*>
+        v .:? "9patch" .!= False <*>
         fmap (fmap T.unpack) (v .: "images") <*>
         v .: "render"
 
@@ -79,7 +85,7 @@ inkscape :: FilePath -> RenderJob -> IO ()
 inkscape input job = undefined
 
 render :: RenderGroup -> IO ()
-render (RenderGroup b inputs jobs) = do
+render (RenderGroup b n inputs jobs) = do
     globs <- join <$> V.mapM (fmap V.fromList . glob) inputs
     V.forM_ globs $ \input ->
         V.forM_ jobs $ \job -> do
@@ -87,7 +93,39 @@ render (RenderGroup b inputs jobs) = do
             let backFun = case b of
                             Illustrator -> illustrator
                             Inkscape -> inkscape
+            M.when n $ ninePatchPre job
             backFun input job
+
+runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
+runXmlArrow src dst arrow = runX $
+    readDocument [] src
+    >>>
+    processChildren (arrow `when` isElem)
+    >>>
+    writeDocument [withIndent yes] dst >>> getErrStatus
+
+setVisibility :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
+setVisibility mname vis = processChildren (processGroups name vis `when` hasName "g")
+    where
+        name = case mname of
+                Just n -> (== n)
+                Nothing -> const True
+
+processGroups :: (String -> Bool) -> Bool -> IOSArrow XmlTree XmlTree
+processGroups name vis = proc value -> do
+    matches <- hasAttrValue "inkscape:label" name -< value
+    hidden <- if vis
+                then addAttr "display" "" >>> addAttr "style" "" -< matches
+                else addAttr "display" "none" >>> addAttr "style" "display:none" -< matches
+    returnA -< hidden
+
+ninePatchPre :: RenderJob -> IO ()
+ninePatchPre (RenderJob j d s p) = do
+    let tmp = j <.> "tmp9" <.> "svg"
+        tmpJob = RenderJob tmp d s p
+    copyFile j tmp
+    runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
+    return ()
 
 main :: IO ()
 main = do
