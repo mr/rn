@@ -76,15 +76,23 @@ illustrator input output scaling =
 imagemagick :: BackendFunc
 imagemagick input output scaling =
     let cmd = "convert"
-        args = [input
+        args = [ input
                , "-resize"
                , show scaling ++ "%"
                , output
                ]
-   in (cmd, args)
+    in (cmd, args)
 
 inkscape :: BackendFunc
-inkscape input output scaling = undefined
+inkscape input output scaling =
+    let cmd = "inkscape"
+        args = [ "-d"
+               , show scaling
+               , "-e"
+               , output
+               , input
+               ]
+    in (cmd, args)
 
 backFun :: Backend -> BackendFunc
 backFun Illustrator = illustrator
