@@ -144,12 +144,9 @@ svg = "http://www.w3.org/2000/svg"
 
 runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
 runXmlArrow src dst arrow = runX $
-    readDocument [] src
-    >>>
-    propagateNamespaces
-    >>>
-    processChildren (arrow `when` isElem)
-    >>>
+    readDocument [] src >>>
+    propagateNamespaces >>>
+    processChildren (arrow `when` isElem) >>>
     writeDocument [withIndent yes] dst >>> getErrStatus
 
 setVisibility :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
