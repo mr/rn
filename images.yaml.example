@@ -1,0 +1,7 @@
+- backend: imagemagick
+  9patch: true
+  images:
+    - Default-portrait.9.svg
+  render:
+    - path: .
+      size: 480
