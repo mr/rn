@@ -93,7 +93,7 @@ render (RenderGroup b n inputs jobs) = do
             let backFun = case b of
                             Illustrator -> illustrator
                             Inkscape -> inkscape
-            M.when n $ ninePatchPre job
+            M.when n . M.void $ ninePatchPre job
             backFun input job
 
 runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
@@ -105,27 +105,28 @@ runXmlArrow src dst arrow = runX $
     writeDocument [withIndent yes] dst >>> getErrStatus
 
 setVisibility :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
-setVisibility mname vis = processChildren (processGroups name vis `when` hasName "g")
-    where
-        name = case mname of
-                Just n -> (== n)
-                Nothing -> const True
+setVisibility mname vis = processChildren (processGroups mname vis `when` hasName "g")
 
-processGroups :: (String -> Bool) -> Bool -> IOSArrow XmlTree XmlTree
+processGroups :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
 processGroups name vis = proc value -> do
-    matches <- hasAttrValue "inkscape:label" name -< value
+    matches <- if isJust name
+                    then hasAttrValue "inkscape:label" (== fromJust name) -< value
+                    else this -< value
     hidden <- if vis
                 then addAttr "display" "" >>> addAttr "style" "" -< matches
                 else addAttr "display" "none" >>> addAttr "style" "display:none" -< matches
     returnA -< hidden
 
-ninePatchPre :: RenderJob -> IO ()
+ninePatchPre :: RenderJob -> IO RenderJob
 ninePatchPre (RenderJob j d s p) = do
     let tmp = j <.> "tmp9" <.> "svg"
         tmpJob = RenderJob tmp d s p
     copyFile j tmp
     runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
-    return ()
+    return tmpJob
+
+ninePatchPost :: RenderJob -> IO ()
+ninePatchPost = undefined
 
 main :: IO ()
 main = do
