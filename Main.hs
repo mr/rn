@@ -131,21 +131,26 @@ ninePatchPre b i o s = M.void $ do
 ninePatchPost :: RenderJob -> IO ()
 ninePatchPost = undefined
 
+ink = "http://www.inkscape.org/namespaces/inkscape"
+svg = "http://www.w3.org/2000/svg"
+
 runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
 runXmlArrow src dst arrow = runX $
     readDocument [] src
+    >>>
+    propagateNamespaces
     >>>
     processChildren (arrow `when` isElem)
     >>>
     writeDocument [withIndent yes] dst >>> getErrStatus
 
 setVisibility :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
-setVisibility mname vis = processChildren (processGroups mname vis `when` hasName "g")
+setVisibility mname vis = processChildren $ processGroups mname vis `when` hasQName (mkQName "" "g" svg) `orElse` this
 
 processGroups :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
 processGroups name vis = proc value -> do
     matches <- if isJust name
-                    then hasAttrValue "inkscape:label" (== fromJust name) -< value
+                    then hasQAttrValue (mkQName "" "label" ink) (== fromJust name) -< value
                     else this -< value
     hidden <- if vis
                 then addAttr "display" "" >>> addAttr "style" "" -< matches
