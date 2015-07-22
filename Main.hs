@@ -125,6 +125,7 @@ ninePatchPre b i o s = M.void $ do
         tmpPng = i <.> "tmp9" <.> "png"
     copyFile i tmp
     runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
+    runXmlArrow i i $ setVisibility (Just "9patch") False
     runBackend b tmp tmpPng s
 
 ninePatchPost :: RenderJob -> IO ()
