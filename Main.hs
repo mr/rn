@@ -35,6 +35,8 @@ instance FromJSON RenderGroup where
 data Backend = Illustrator | Inkscape | ImageMagick
     deriving (Show)
 
+type BackendFunc = FilePath -> FilePath -> Float -> (String, [String])
+
 instance FromJSON Backend where
     parseJSON (String "illustrator") = return Illustrator
     parseJSON (String "inkscape")    = return Inkscape
@@ -61,7 +63,7 @@ instance FromJSON RenderJob where
                     Just size -> return . Right $ size
                     Nothing -> fail "Need 1 of either dpi or scaling"
 
-illustrator :: FilePath -> FilePath -> Float -> (String, [String])
+illustrator :: BackendFunc
 illustrator input output scaling =
     let cmd = "osascript"
         args = [ "illustrator-render"
@@ -71,7 +73,7 @@ illustrator input output scaling =
                ]
    in (cmd, args)
 
-imagemagick :: FilePath -> FilePath -> Float -> (String, [String])
+imagemagick :: BackendFunc
 imagemagick input output scaling =
     let cmd = "convert"
         args = [input
@@ -81,8 +83,23 @@ imagemagick input output scaling =
                ]
    in (cmd, args)
 
-inkscape :: FilePath -> FilePath -> Float -> (String, [String])
+inkscape :: BackendFunc
 inkscape input output scaling = undefined
+
+backFun :: Backend -> BackendFunc
+backFun Illustrator = illustrator
+backFun Inkscape = inkscape
+backFun ImageMagick = imagemagick
+
+runBackend :: Backend -> FilePath -> FilePath -> Float -> IO ()
+runBackend b i o s = do
+    let (cmd, args) = backFun b i o s
+    F.print "Rendering {} to {}\n" [i, o]
+    F.print "Using cmd: {} args: {}\n" [cmd, show args]
+    (ecode, _, _) <- readProcessWithExitCode cmd args ""
+    case ecode of
+        ExitSuccess -> return ()
+        ExitFailure c -> F.print "Render of {} failed with code {}\n" [o, show c]
 
 render :: RenderGroup -> IO ()
 render (RenderGroup b n inputs jobs) = do
@@ -90,27 +107,28 @@ render (RenderGroup b n inputs jobs) = do
     V.forM_ globs $ \input ->
         V.forM_ jobs $ \job -> do
             createDirectoryIfMissing True $ jobPath job
-            M.when n . M.void $ ninePatchPre input
 
             absoluteInput <- makeAbsolute input
             absoluteJobPath <- makeAbsolute $ jobPath job
-            let backFun = case b of
-                            Illustrator -> illustrator
-                            Inkscape -> inkscape
-                            ImageMagick -> imagemagick
-                (_, fileName) = splitFileName $ replaceExtension input ".png"
+            let (_, fileName) = splitFileName $ replaceExtension input ".png"
                 absoluteOutput = absoluteJobPath </> maybe fileName (++ fileName) (prepend job)
                 scaling = case scale job of
                             Left scale -> scale
                             Right size -> size / dpi job * 100
-                (cmd, args) = backFun absoluteInput absoluteOutput scaling
 
-            F.print "Rendering {} to {}\n" [absoluteInput, absoluteOutput]
-            F.print "Using cmd: {} args: {}\n" [cmd, show args]
-            (ecode, _, _) <- readProcessWithExitCode cmd args ""
-            case ecode of
-                ExitSuccess -> return ()
-                ExitFailure c -> F.print "Render of {} failed with code {}\n" [absoluteOutput, show c]
+            M.when n . M.void $ ninePatchPre b absoluteInput absoluteOutput scaling
+            runBackend b absoluteInput absoluteOutput scaling
+
+ninePatchPre :: Backend -> FilePath -> FilePath -> Float -> IO ()
+ninePatchPre b i o s = M.void $ do
+    let tmp = i <.> "tmp9" <.> "svg"
+        tmpPng = i <.> "tmp9" <.> "png"
+    copyFile i tmp
+    runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
+    runBackend b tmp tmpPng s
+
+ninePatchPost :: RenderJob -> IO ()
+ninePatchPost = undefined
 
 runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
 runXmlArrow src dst arrow = runX $
@@ -132,15 +150,6 @@ processGroups name vis = proc value -> do
                 then addAttr "display" "" >>> addAttr "style" "" -< matches
                 else addAttr "display" "none" >>> addAttr "style" "display:none" -< matches
     returnA -< hidden
-
-ninePatchPre :: FilePath -> IO ()
-ninePatchPre i = M.void $ do
-    let tmp = i <.> "tmp9" <.> "svg"
-    copyFile i tmp
-    runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
-
-ninePatchPost :: RenderJob -> IO ()
-ninePatchPost = undefined
 
 main :: IO ()
 main = do
