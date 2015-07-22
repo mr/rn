@@ -93,7 +93,7 @@ render (RenderGroup b n inputs jobs) = do
             let backFun = case b of
                             Illustrator -> illustrator
                             Inkscape -> inkscape
-            M.when n . M.void $ ninePatchPre job
+            M.when n . M.void $ ninePatchPre input
             backFun input job
 
 runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
@@ -117,13 +117,11 @@ processGroups name vis = proc value -> do
                 else addAttr "display" "none" >>> addAttr "style" "display:none" -< matches
     returnA -< hidden
 
-ninePatchPre :: RenderJob -> IO RenderJob
-ninePatchPre (RenderJob j d s p) = do
-    let tmp = j <.> "tmp9" <.> "svg"
-        tmpJob = RenderJob tmp d s p
-    copyFile j tmp
+ninePatchPre :: FilePath -> IO ()
+ninePatchPre i = M.void $ do
+    let tmp = i <.> "tmp9" <.> "svg"
+    copyFile i tmp
     runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
-    return tmpJob
 
 ninePatchPost :: RenderJob -> IO ()
 ninePatchPost = undefined
