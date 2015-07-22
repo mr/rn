@@ -32,12 +32,13 @@ instance FromJSON RenderGroup where
         fmap (fmap T.unpack) (v .: "images") <*>
         v .: "render"
 
-data Backend = Illustrator | Inkscape
+data Backend = Illustrator | Inkscape | ImageMagick
     deriving (Show)
 
 instance FromJSON Backend where
     parseJSON (String "illustrator") = return Illustrator
     parseJSON (String "inkscape")    = return Inkscape
+    parseJSON (String "imagemagick") = return ImageMagick
     parseJSON _                      = fail "Backend must be one of: illustrator, inkscape"
 
 data RenderJob = RenderJob {
@@ -60,29 +61,28 @@ instance FromJSON RenderJob where
                     Just size -> return . Right $ size
                     Nothing -> fail "Need 1 of either dpi or scaling"
 
-illustrator :: FilePath -> RenderJob -> IO ()
-illustrator input job = do
-    let scaling = case scale job of
-                    Left scale -> scale
-                    Right size -> size / dpi job * 100
-    absoluteInput <- makeAbsolute input
-    absoluteJobPath <- makeAbsolute $ jobPath job
+illustrator :: FilePath -> FilePath -> Float -> (String, [String])
+illustrator input output scaling =
     let cmd = "osascript"
-        (_, fileName) = splitFileName $ replaceExtension input ".png"
-        absoluteOutput = absoluteJobPath </> maybe fileName (++ fileName) (prepend job)
         args = [ "illustrator-render"
-               , absoluteInput
-               , absoluteOutput
+               , input
+               , output
                , show scaling
                ]
-    F.print "Rendering {} to {}" [absoluteInput, absoluteOutput]
-    (ecode, out, err) <- readProcessWithExitCode cmd args ""
-    case ecode of
-        ExitSuccess -> return ()
-        ExitFailure c -> F.print "Render of {} failed with code {}" [absoluteOutput, show c]
+   in (cmd, args)
 
-inkscape :: FilePath -> RenderJob -> IO ()
-inkscape input job = undefined
+imagemagick :: FilePath -> FilePath -> Float -> (String, [String])
+imagemagick input output scaling =
+    let cmd = "convert"
+        args = [input
+               , "-resize"
+               , show scaling ++ "%"
+               , output
+               ]
+   in (cmd, args)
+
+inkscape :: FilePath -> FilePath -> Float -> (String, [String])
+inkscape input output scaling = undefined
 
 render :: RenderGroup -> IO ()
 render (RenderGroup b n inputs jobs) = do
@@ -90,11 +90,26 @@ render (RenderGroup b n inputs jobs) = do
     V.forM_ globs $ \input ->
         V.forM_ jobs $ \job -> do
             createDirectoryIfMissing True $ jobPath job
+            M.when n . M.void $ ninePatchPre input
+
+            absoluteInput <- makeAbsolute input
+            absoluteJobPath <- makeAbsolute $ jobPath job
             let backFun = case b of
                             Illustrator -> illustrator
                             Inkscape -> inkscape
-            M.when n . M.void $ ninePatchPre input
-            backFun input job
+                            ImageMagick -> imagemagick
+                (_, fileName) = splitFileName $ replaceExtension input ".png"
+                absoluteOutput = absoluteJobPath </> maybe fileName (++ fileName) (prepend job)
+                scaling = case scale job of
+                            Left scale -> scale
+                            Right size -> size / dpi job * 100
+                (cmd, args) = backFun absoluteInput absoluteOutput scaling
+
+            F.print "Rendering {} to {}\n" [absoluteInput, absoluteOutput]
+            (ecode, _, _) <- readProcessWithExitCode cmd args ""
+            case ecode of
+                ExitSuccess -> return ()
+                ExitFailure c -> F.print "Render of {} failed with code {}\n" [absoluteOutput, show c]
 
 runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
 runXmlArrow src dst arrow = runX $
