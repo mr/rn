@@ -106,6 +106,7 @@ render (RenderGroup b n inputs jobs) = do
                 (cmd, args) = backFun absoluteInput absoluteOutput scaling
 
             F.print "Rendering {} to {}\n" [absoluteInput, absoluteOutput]
+            F.print "Using cmd: {} args: {}\n" [cmd, show args]
             (ecode, _, _) <- readProcessWithExitCode cmd args ""
             case ecode of
                 ExitSuccess -> return ()
