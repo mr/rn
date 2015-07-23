@@ -1,5 +1,7 @@
 {-# LANGUAGE Arrows #-}
 
+import Codec.Picture
+import Codec.Picture.Types
 import Control.Applicative
 import Control.Monad (join)
 import Data.Maybe
@@ -136,8 +138,15 @@ ninePatchPre b i o s = M.void $ do
     runXmlArrow i i $ setVisibility (Just "9patch") False
     runBackend b tmp tmpPng s
 
-ninePatchPost :: RenderJob -> IO ()
-ninePatchPost = undefined
+ninePatchPost :: Backend -> FilePath -> FilePath -> Float -> IO ()
+ninePatchPost b i o s = do
+    let inPng = replaceExtension i ".png"
+        tmpPng = i <.> "tmp9" <.> "png"
+    res <- readPng tmpPng
+    rem <- readPng inPng
+    case res of
+        Left str -> print "ayy lmao"
+        Right dimg -> print "ayyy"
 
 ink = "http://www.inkscape.org/namespaces/inkscape"
 svg = "http://www.w3.org/2000/svg"
@@ -161,6 +170,34 @@ processGroups name vis = proc value -> do
                 then addAttr "display" "" >>> addAttr "style" "" -< matches
                 else addAttr "display" "none" >>> addAttr "style" "display:none" -< matches
     returnA -< hidden
+
+xor :: Bool -> Bool -> Bool
+xor a b = (a || b) && not (a && b)
+
+getImage :: DynamicImage -> IO ()
+getImage (ImageRGBA8 i) = writePng "ayylmao.png" $ createImage i
+getImage (ImageYA8 i) = writePng "ayylmao.png" . createImage $ promoteImage i
+getImage _ = print "ayy lmao 2"
+
+isOpaque :: PixelRGBA8 -> Bool
+isOpaque (PixelRGBA8 _ _ _ a) = a == 255
+
+onEdges :: Int -> Int -> Int -> Int -> Bool
+onEdges x y h w = xor (y == 0) (x == 0) || xor (y == h - 1) (x == w - 1)
+
+createImage :: Image PixelRGBA8 -> Image PixelRGBA8
+createImage i = generateImage pixelRender (imageWidth i + 2) (imageHeight i + 2)
+    where
+        pixelRender x y =
+            let h = imageHeight i
+                w = imageWidth i
+                x'  | x < 1      = 1
+                    | x >= w     = w - 1
+                    | otherwise  = x
+                y'  | y < 1      = 1
+                    | y >= h     = h - 1
+                    | otherwise  = y
+            in PixelRGBA8 0 0 0 $ if isOpaque (pixelAt i x' y') && onEdges x y (h + 2) (w + 2) then 255 else 0
 
 main :: IO ()
 main = do
