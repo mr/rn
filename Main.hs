@@ -211,7 +211,7 @@ createImage i = generateImage pixelRender (imageWidth i + 2) (imageHeight i + 2)
 data Opts = Opts String String
 
 argParser :: ParserSpec Opts
-argParser = Opts `parsedBy` optFlag "image.yaml" "input" `andBy` optFlag  "" "target"
+argParser = Opts `parsedBy` optFlag "images.yaml" "input" `andBy` optFlag  "" "target"
 
 main :: IO ()
 main = withParseResult argParser $ \(Opts input target) -> do
