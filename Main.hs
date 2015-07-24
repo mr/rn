@@ -8,6 +8,7 @@ import Data.Maybe
 import Data.Text (Text)
 import Data.Vector (Vector)
 import Data.Yaml
+import System.Console.ArgParser
 import System.Directory
 import System.Process
 import System.Environment
@@ -21,6 +22,7 @@ import qualified Data.Text.Format as F
 import qualified Data.Vector as V
 
 data RenderGroup = RenderGroup {
+    name       :: String,
     backend    :: Backend,
     ninePatch  :: Bool,
     images     :: Vector FilePath,
@@ -29,6 +31,7 @@ data RenderGroup = RenderGroup {
 
 instance FromJSON RenderGroup where
     parseJSON (Object v) = RenderGroup <$>
+        fmap T.unpack (v .: "name") <*>
         v .: "backend" <*>
         v .:? "9patch" .!= False <*>
         fmap (fmap T.unpack) (v .: "images") <*>
@@ -116,7 +119,7 @@ runBackend b i o s = do
         ExitFailure c -> F.print "Render of {} failed with code {}\n" [o, show c]
 
 render :: RenderGroup -> IO ()
-render (RenderGroup b n inputs jobs) = do
+render (RenderGroup n b np inputs jobs) = do
     globs <- join <$> V.mapM (fmap V.fromList . glob) inputs
     V.forM_ globs $ \input ->
         V.forM_ jobs $ \job -> do
@@ -126,13 +129,13 @@ render (RenderGroup b n inputs jobs) = do
             absoluteJobPath <- makeAbsolute $ jobPath job
             let (_, fileName) = splitFileName $ replaceExtension input ".png"
                 prepended = maybe fileName (++ fileName) (prepend job)
-                newFilename =fromMaybe (maybe prepended (prepended ++) (append job)) (rename job)
+                newFilename = fromMaybe (maybe prepended (prepended ++) (append job)) (rename job)
                 absoluteOutput = absoluteJobPath </> newFilename
                 scaling = case scale job of
                             Left scale -> scale
                             Right size -> size / dpi job * 100
 
-            M.when n . M.void $ ninePatchPre b absoluteInput absoluteOutput scaling
+            M.when np . M.void $ ninePatchPre b absoluteInput absoluteOutput scaling
             runBackend b absoluteInput absoluteOutput scaling
 
 ninePatchPre :: Backend -> FilePath -> FilePath -> Float -> IO ()
@@ -205,12 +208,15 @@ createImage i = generateImage pixelRender (imageWidth i + 2) (imageHeight i + 2)
                     | otherwise  = y
             in PixelRGBA8 0 0 0 $ if isOpaque (pixelAt i x' y') && onEdges x y (h + 2) (w + 2) then 255 else 0
 
+data Opts = Opts String String
+
+argParser :: ParserSpec Opts
+argParser = Opts `parsedBy` optFlag "image.yaml" "input" `andBy` optFlag  "" "target"
+
 main :: IO ()
-main = do
-    args <- getArgs
-    let defaultPath = "images.yaml"
-        yamlFile = fromMaybe defaultPath $ listToMaybe args
-    renderGroups <- decodeFileEither yamlFile
+main = withParseResult argParser $ \(Opts input target) -> do
+    let renderTarget = if target == "" then Nothing else Just target
+    renderGroups <- decodeFileEither input
     case renderGroups of
         Left e -> print e
-        Right r -> V.mapM_ render r
+        Right r -> V.mapM_ render (V.filter (maybe (const True) (==) renderTarget . name) r)
