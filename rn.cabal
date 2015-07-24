@@ -15,6 +15,7 @@ category:            Graphics
 build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
+data-files: illustrator-render
 
 executable rn
   main-is:             Main.hs

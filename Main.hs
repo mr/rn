@@ -21,6 +21,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Format as F
 import qualified Data.Vector as V
 
+import Paths_rn
+
 data RenderGroup = RenderGroup {
     name       :: String,
     backend    :: Backend,
@@ -75,8 +77,7 @@ instance FromJSON RenderJob where
 illustrator :: BackendFunc
 illustrator input output scaling =
     let cmd = "osascript"
-        args = [ "illustrator-render"
-               , input
+        args = [ input
                , output
                , show scaling
                ]
@@ -110,7 +111,11 @@ backFun ImageMagick = imagemagick
 
 runBackend :: Backend -> FilePath -> FilePath -> Float -> IO ()
 runBackend b i o s = do
-    let (cmd, args) = backFun b i o s
+    illustratorExe <- getDataFileName "illustrator-render"
+    let (cmd, pargs) = backFun b i o s
+        args = case b of
+                   Illustrator -> illustratorExe : pargs
+                   _ -> pargs
     F.print "Rendering {} to {}\n" [i, o]
     F.print "Using cmd: {} args: {}\n" [cmd, show args]
     (ecode, _, _) <- readProcessWithExitCode cmd args ""
