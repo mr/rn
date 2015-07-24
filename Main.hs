@@ -50,7 +50,8 @@ data RenderJob = RenderJob {
     dpi     :: Float,
     scale   :: Either Float Float,
     prepend :: Maybe String,
-    append  :: Maybe String
+    append  :: Maybe String,
+    rename  :: Maybe String
 } deriving (Show)
 
 instance FromJSON RenderJob where
@@ -59,7 +60,8 @@ instance FromJSON RenderJob where
         v .:? "dpi" .!= 72 <*>
         scalingOrSize v <*>
         fmap (fmap T.unpack) (v .:? "prepend") <*>
-        fmap (fmap T.unpack) (v .:? "append")
+        fmap (fmap T.unpack) (v .:? "append") <*>
+        fmap (fmap T.unpack) (v .:? "rename")
         where
             scalingOrSize w = w .:? "scaling" >>= \case
                 Just scaling -> return . Left $ scaling
@@ -124,7 +126,7 @@ render (RenderGroup b n inputs jobs) = do
             absoluteJobPath <- makeAbsolute $ jobPath job
             let (_, fileName) = splitFileName $ replaceExtension input ".png"
                 prepended = maybe fileName (++ fileName) (prepend job)
-                newFilename = maybe prepended (prepended ++) (append job)
+                newFilename =fromMaybe (maybe prepended (prepended ++) (append job)) (rename job)
                 absoluteOutput = absoluteJobPath </> newFilename
                 scaling = case scale job of
                             Left scale -> scale
