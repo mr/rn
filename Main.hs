@@ -132,9 +132,9 @@ render (RenderGroup n b np inputs jobs) = do
 
             absoluteInput <- makeAbsolute input
             absoluteJobPath <- makeAbsolute $ jobPath job
-            let (_, fileName) = splitFileName $ replaceExtension input ".png"
-                prepended = maybe fileName (++ fileName) (prepend job)
-                newFilename = fromMaybe (maybe prepended (prepended ++) (append job)) (rename job)
+            let baseName = takeBaseName input
+                prepended = maybe baseName (++ baseName) (prepend job)
+                newFilename = fromMaybe (maybe prepended (prepended ++) (append job)) (rename job) <.> "png"
                 absoluteOutput = absoluteJobPath </> newFilename
                 scaling = case scale job of
                             Left scale -> scale
