@@ -158,9 +158,7 @@ ninePatchPost b i o s = do
         tmpPng = i <.> "tmp9" <.> "png"
     res <- readPng tmpPng
     rem <- readPng inPng
-    case res of
-        Left str -> print "ayy lmao"
-        Right dimg -> print "ayyy"
+    return ()
 
 ink = "http://www.inkscape.org/namespaces/inkscape"
 svg = "http://www.w3.org/2000/svg"
