@@ -114,8 +114,8 @@ runBackend b i o s = do
         args = case b of
                    Illustrator -> illustratorExe : pargs
                    _ -> pargs
-    F.print "Rendering {} to {}\n" [i, o]
-    F.print "Using cmd: {} args: {}\n" [cmd, show args]
+    --F.print "Rendering {} to {}\n" [i, o]
+    --F.print "Using cmd: {} args: {}\n" [cmd, show args]
     (ecode, _, _) <- readProcessWithExitCode cmd args ""
     case ecode of
         ExitSuccess -> return ()
@@ -198,4 +198,4 @@ main = withParseResult argParser $ \(Opts input target) -> do
     renderGroups <- decodeFileEither input
     case renderGroups of
         Left e -> print e
-        Right r -> V.mapM_ render (V.filter (maybe (const True) (==) renderTarget . name) r)
+        Right r -> V.mapM_ render $ V.filter (maybe (const True) (==) renderTarget . name) r
