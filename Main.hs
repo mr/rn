@@ -1,5 +1,3 @@
-{-# LANGUAGE Arrows #-}
-
 import Codec.Picture
 import Codec.Picture.Types
 import Control.Applicative
@@ -26,7 +24,7 @@ import Paths_rn
 data RenderGroup = RenderGroup {
     name       :: String,
     backend    :: Backend,
-    ninePatch  :: Bool,
+    ninePatch  :: Maybe String,
     images     :: Vector FilePath,
     renderJobs :: Vector RenderJob
 } deriving (Show)
@@ -35,7 +33,7 @@ instance FromJSON RenderGroup where
     parseJSON (Object v) = RenderGroup <$>
         fmap T.unpack (v .: "name") <*>
         v .: "backend" <*>
-        v .:? "9patch" .!= False <*>
+        v .:? "9patch" <*>
         fmap (fmap T.unpack) (v .: "images") <*>
         v .: "render"
 
@@ -140,58 +138,34 @@ render (RenderGroup n b np inputs jobs) = do
                             Left scale -> scale
                             Right size -> size / dpi job * 100
 
-            M.when np . M.void $ ninePatchPre b absoluteInput absoluteOutput scaling
             runBackend b absoluteInput absoluteOutput scaling
+            case np of
+                Just nPath -> M.void $ renderNinePatch b nPath absoluteOutput scaling
+                Nothing -> return ()
 
-ninePatchPre :: Backend -> FilePath -> FilePath -> Float -> IO ()
-ninePatchPre b i o s = M.void $ do
-    let tmp = i <.> "tmp9" <.> "svg"
-        tmpPng = i <.> "tmp9" <.> "png"
-    copyFile i tmp
-    runXmlArrow tmp tmp $ setVisibility Nothing False >>> setVisibility (Just "9patch") True
-    runXmlArrow i i $ setVisibility (Just "9patch") False
-    runBackend b tmp tmpPng s
+renderNinePatch :: Backend -> FilePath -> FilePath -> Float -> IO ()
+renderNinePatch b i o s = do
+    let ipath  = replaceExtension i ".png"
+    runBackend b i ipath s
+    eorig <- readPng o
+    enew <- readPng ipath
+    case eorig >>= \o -> enew >>= \n -> return (o, n) of
+        Left str -> print str
+        Right (origPng, ninePng) -> do
+            createBorderImg ninePng ipath
+            --ninePatchify ipath origPng ninePng
+            --removeFile ipath
 
-ninePatchPost :: Backend -> FilePath -> FilePath -> Float -> IO ()
-ninePatchPost b i o s = do
-    let inPng = replaceExtension i ".png"
-        tmpPng = i <.> "tmp9" <.> "png"
-    res <- readPng tmpPng
-    rem <- readPng inPng
-    case res of
-        Left str -> print "ayy lmao"
-        Right dimg -> print "ayyy"
-
-ink = "http://www.inkscape.org/namespaces/inkscape"
-svg = "http://www.w3.org/2000/svg"
-
-runXmlArrow :: String -> String -> IOSArrow XmlTree XmlTree -> IO [Int]
-runXmlArrow src dst arrow = runX $
-    readDocument [] src >>>
-    propagateNamespaces >>>
-    processChildren (arrow `when` isElem) >>>
-    writeDocument [withIndent yes] dst >>> getErrStatus
-
-setVisibility :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
-setVisibility mname vis = processChildren $ processGroups mname vis `when` hasQName (mkQName "" "g" svg) `orElse` this
-
-processGroups :: Maybe String -> Bool -> IOSArrow XmlTree XmlTree
-processGroups name vis = proc value -> do
-    matches <- if isJust name
-                    then hasQAttrValue (mkQName "" "label" ink) (== fromJust name) -< value
-                    else this -< value
-    hidden <- if vis
-                then addAttr "display" "" >>> addAttr "style" "" -< matches
-                else addAttr "display" "none" >>> addAttr "style" "display:none" -< matches
-    returnA -< hidden
+ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
+ninePatchify = undefined
 
 xor :: Bool -> Bool -> Bool
 xor a b = (a || b) && not (a && b)
 
-getImage :: DynamicImage -> IO ()
-getImage (ImageRGBA8 i) = writePng "ayylmao.png" $ createImage i
-getImage (ImageYA8 i) = writePng "ayylmao.png" . createImage $ promoteImage i
-getImage _ = print "ayy lmao 2"
+createBorderImg :: DynamicImage -> FilePath -> IO ()
+createBorderImg (ImageRGBA8 i) output = writePng output $ createImage i
+createBorderImg (ImageYA8 i) output = writePng output . createImage $ promoteImage i
+createBorderImg _ _ = fail "What are you doing champ"
 
 isOpaque :: PixelRGBA8 -> Bool
 isOpaque (PixelRGBA8 _ _ _ a) = a == 255
