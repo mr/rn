@@ -114,8 +114,7 @@ runBackend b i o s = do
         args = case b of
                    Illustrator -> illustratorExe : pargs
                    _ -> pargs
-    --F.print "Rendering {} to {}\n" [i, o]
-    --F.print "Using cmd: {} args: {}\n" [cmd, show args]
+    F.print "Rendering with {} from {} to {}\n" [show b, i, o]
     (ecode, _, _) <- readProcessWithExitCode cmd args ""
     case ecode of
         ExitSuccess -> return ()
@@ -157,8 +156,7 @@ renderNinePatch b i o s = do
             removeFile ipath
 
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
-ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) =
-    writePng o $ generateImage pixelRender w h
+ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) = writePng o $ generateImage pixelRender w h
     where
         h = imageHeight nine
         w = imageWidth nine
@@ -205,4 +203,4 @@ main = withParseResult argParser $ \(Opts input target) -> do
     renderGroups <- decodeFileEither input
     case renderGroups of
         Left e -> print e
-        Right r -> V.mapM_ render $ V.filter (maybe (const True) (==) renderTarget . name) r
+        Right r -> V.mapM_ render . V.filter $ maybe (const True) (==) renderTarget . name r
