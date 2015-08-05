@@ -158,10 +158,11 @@ renderNinePatch b i o s = do
 
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
 ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) =
-    let h = imageHeight nine
+    writePng o $ generateImage pixelRender (imageWidth nine) (imageHeight nine)
+    where
+        h = imageHeight nine
         w = imageWidth nine
-    in writePng o $ generateImage pixelRender (imageWidth nine) (imageHeight nine)
-    where pixelRender x y = if x == 0 || y == 0 || x == w - 1 || y == h - 1
+        pixelRender x y = if x == 0 || y == 0 || x == w - 1 || y == h - 1
                                 then pixelAt nine x y
                                 else pixelAt orig x y
 
