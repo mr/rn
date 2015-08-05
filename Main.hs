@@ -146,7 +146,6 @@ render (RenderGroup n b np inputs jobs) = do
 renderNinePatch :: Backend -> FilePath -> FilePath -> Float -> IO ()
 renderNinePatch b i o s = do
     let ipath  = replaceExtension i ".png"
-    F.print "9gag: {} {} {} {}\n" [b, i, o, s]
     runBackend b i ipath s
     eorig <- readPng o
     enew <- readPng ipath
@@ -154,18 +153,17 @@ renderNinePatch b i o s = do
         Left str -> print str
         Right (origPng, ninePng) -> do
             createBorderImg ninePng ipath
-            print "9gaggin"
             ninePatchify o origPng ninePng
             removeFile ipath
 
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
 ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) =
-    writePng o $ generateImage pixelRender (imageWidth nine) (imageHeight nine)
+    writePng o $ generateImage pixelRender w h
     where
         h = imageHeight nine
         w = imageWidth nine
         pixelRender x y = if x == 0 || y == 0 || x == w - 1 || y == h - 1
-                                then pixelAt nine x y
+                                then PixelRGBA8 0 0 0 $ if isOpaque $ pixelAt nine x y then 255 else 0
                                 else pixelAt orig x y
 
 xor :: Bool -> Bool -> Bool
@@ -177,7 +175,7 @@ createBorderImg (ImageYA8 i) output = writePng output . createImage $ promoteIma
 createBorderImg _ _ = fail "What are you doing champ"
 
 isOpaque :: PixelRGBA8 -> Bool
-isOpaque (PixelRGBA8 _ _ _ a) = a == 255
+isOpaque (PixelRGBA8 _ _ _ a) = a > 0
 
 onEdges :: Int -> Int -> Int -> Int -> Bool
 onEdges x y h w = xor (y == 0) (x == 0) || xor (y == h - 1) (x == w - 1)
