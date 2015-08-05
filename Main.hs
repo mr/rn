@@ -146,6 +146,7 @@ render (RenderGroup n b np inputs jobs) = do
 renderNinePatch :: Backend -> FilePath -> FilePath -> Float -> IO ()
 renderNinePatch b i o s = do
     let ipath  = replaceExtension i ".png"
+    F.print "9gag: {} {} {} {}\n" [b, i, o, s]
     runBackend b i ipath s
     eorig <- readPng o
     enew <- readPng ipath
@@ -153,7 +154,8 @@ renderNinePatch b i o s = do
         Left str -> print str
         Right (origPng, ninePng) -> do
             createBorderImg ninePng ipath
-            ninePatchify ipath origPng ninePng
+            print "9gaggin"
+            ninePatchify o origPng ninePng
             removeFile ipath
 
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
