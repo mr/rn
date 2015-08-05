@@ -153,11 +153,16 @@ renderNinePatch b i o s = do
         Left str -> print str
         Right (origPng, ninePng) -> do
             createBorderImg ninePng ipath
-            --ninePatchify ipath origPng ninePng
-            --removeFile ipath
+            ninePatchify ipath origPng ninePng
+            removeFile ipath
 
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
-ninePatchify = undefined
+ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) =
+    let h = imageHeight nine
+        w = imageWidth nine
+    in writePng o $ generateImage pixelRender (imageWidth nine) (imageHeight nine)
+    where pixelRender x y = if x == 0 || y == 0 || x == w - 1 || y == h - 1
+                                then pixelAt nine
 
 xor :: Bool -> Bool -> Bool
 xor a b = (a || b) && not (a && b)
