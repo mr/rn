@@ -163,7 +163,7 @@ ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) = writePng o $ generateImage 
         h = imageHeight nine
         w = imageWidth nine
         pixelRender x y = if x == 0 || y == 0 || x == w - 1 || y == h - 1
-                                then if isOpaque $ pixelAt nine x y
+                                then if isOpaque (pixelAt nine x y) && not ((x == 0 && y == 0) || (x == w - 1 && y == h - 1))
                                         then PixelRGBA8 0 0 0 255
                                         else PixelRGBA8 255 255 255 0
                                 else pixelAt orig x y
