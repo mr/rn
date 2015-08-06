@@ -131,7 +131,7 @@ render (RenderGroup n b np inputs jobs) = do
             absoluteJobPath <- makeAbsolute $ jobPath job
             let baseName = takeBaseName input
                 prepended = maybe baseName (++ baseName) (prepend job)
-                newFilename = fromMaybe (maybe prepended (prepended ++) (append job)) (rename job) <.> "png"
+                newFilename = fromMaybe (maybe prepended (prepended ++) (append job) <.> "png") (rename job)
                 absoluteOutput = absoluteJobPath </> newFilename
                 scaling = case scale job of
                             Left scale -> scale
@@ -139,7 +139,9 @@ render (RenderGroup n b np inputs jobs) = do
 
             runBackend b absoluteInput absoluteOutput scaling
             case np of
-                Just nPath -> M.void $ renderNinePatch b nPath absoluteOutput scaling
+                Just nPath -> do
+                    absoluteNPath <- makeAbsolute nPath
+                    M.void $ renderNinePatch b absoluteNPath absoluteOutput scaling
                 Nothing -> return ()
 
 renderNinePatch :: Backend -> FilePath -> FilePath -> Float -> IO ()
@@ -205,4 +207,4 @@ main = withParseResult argParser $ \(Opts input target) -> do
     renderGroups <- decodeFileEither input
     case renderGroups of
         Left e -> print e
-        Right r -> V.mapM_ render . V.filter $ maybe (const True) (==) renderTarget . name r
+        Right r -> V.mapM_ render $ V.filter (maybe (const True) (==) renderTarget . name) r
