@@ -13,13 +13,14 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.FilePath.Glob
-import Text.XML.HXT.Core
 import qualified Control.Monad as M
 import qualified Data.Text as T
 import qualified Data.Text.Format as F
 import qualified Data.Vector as V
 
 import Paths_rn
+
+import Debug.Trace
 
 data RenderGroup = RenderGroup {
     name       :: String,
@@ -157,16 +158,24 @@ renderNinePatch b i o s = do
             ninePatchify o origPng ninePng
             removeFile ipath
 
+tracePixelAt :: Pixel a => Image a -> Int -> Int -> a
+tracePixelAt i x y =
+    let h = imageHeight i
+        w = imageWidth i
+    in if x <= 0 || y <= 0 || x >= w - 1 || y >= h - 1
+        then trace ("YOOOO " ++ show x ++ " " ++ show y) (pixelAt i x y)
+        else pixelAt i x y
+
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
 ninePatchify o (ImageRGBA8 orig) (ImageRGBA8 nine) = writePng o $ generateImage pixelRender w h
     where
         h = imageHeight nine
         w = imageWidth nine
         pixelRender x y = if x == 0 || y == 0 || x == w - 1 || y == h - 1
-                                then if isOpaque (pixelAt nine x y) && not ((x == 0 && y == 0) || (x == w - 1 && y == h - 1))
+                                then if isOpaque (tracePixelAt nine x y) && not ((x == 0 && y == 0) || (x == w - 1 && y == h - 1))
                                         then PixelRGBA8 0 0 0 255
                                         else PixelRGBA8 255 255 255 0
-                                else pixelAt orig x y
+                                else tracePixelAt orig x y
 
 xor :: Bool -> Bool -> Bool
 xor a b = (a || b) && not (a && b)
