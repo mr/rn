@@ -162,8 +162,8 @@ tracePixelAt :: Pixel a => Image a -> Int -> Int -> a
 tracePixelAt i x y =
     let h = imageHeight i
         w = imageWidth i
-    in if x <= 0 || y <= 0 || x >= w - 1 || y >= h - 1
-        then trace ("YOOOO " ++ show x ++ " " ++ show y) (pixelAt i x y)
+    in if x < 0 || y < 0 || x > w - 1 || y > h - 1
+        then trace ("YOOOO " ++ show x ++ " " ++ show y) (pixelAt i 0 0)
         else pixelAt i x y
 
 ninePatchify :: FilePath -> DynamicImage -> DynamicImage -> IO ()
